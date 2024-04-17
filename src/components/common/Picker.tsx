@@ -3,7 +3,7 @@ import React, {
   memo, useEffect, useMemo, useRef,
 } from '../../lib/teact/teact';
 
-import { requestMutation } from '../../lib/fasterdom/fasterdom';
+import { requestMeasure } from '../../lib/fasterdom/fasterdom';
 import { isUserId } from '../../global/helpers';
 import buildClassName from '../../util/buildClassName';
 import { MEMO_EMPTY_ARRAY } from '../../util/memo';
@@ -37,6 +37,7 @@ type OwnProps = {
   isRoundCheckbox?: boolean;
   lockedIds?: string[];
   forceShowSelf?: boolean;
+  isViewOnly?: boolean;
   onSelectedIdsChange?: (ids: string[]) => void;
   onFilterChange?: (value: string) => void;
   onDisabledClick?: (id: string) => void;
@@ -63,6 +64,7 @@ const Picker: FC<OwnProps> = ({
   isRoundCheckbox,
   lockedIds,
   forceShowSelf,
+  isViewOnly,
   onSelectedIdsChange,
   onFilterChange,
   onDisabledClick,
@@ -75,7 +77,7 @@ const Picker: FC<OwnProps> = ({
   useEffect(() => {
     if (!isSearchable) return;
     setTimeout(() => {
-      requestMutation(() => {
+      requestMeasure(() => {
         inputRef.current!.focus();
       });
     }, FOCUS_DELAY_MS);
@@ -171,7 +173,7 @@ const Picker: FC<OwnProps> = ({
         >
           {viewportIds.map((id) => {
             const renderCheckbox = () => {
-              return (
+              return isViewOnly ? undefined : (
                 <Checkbox
                   label=""
                   disabled={lockedIdsSet.has(id)}
@@ -185,6 +187,7 @@ const Picker: FC<OwnProps> = ({
                 key={id}
                 className={buildClassName('chat-item-clickable picker-list-item', isRoundCheckbox && 'chat-item')}
                 disabled={lockedIdsSet.has(id)}
+                inactive={isViewOnly}
                 allowDisabledClick={Boolean(onDisabledClick)}
                 // eslint-disable-next-line react/jsx-no-bind
                 onClick={() => handleItemClick(id)}

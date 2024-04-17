@@ -33,13 +33,13 @@ export const INACTIVE_MARKER = '[Inactive]';
 export const DEBUG_PAYMENT_SMART_GLOCAL = false;
 
 export const SESSION_USER_KEY = 'user_auth';
-export const LEGACY_SESSION_KEY = 'GramJs:sessionId';
 export const PASSCODE_CACHE_NAME = 'tt-passcode';
 
 export const GLOBAL_STATE_CACHE_DISABLED = false;
 export const GLOBAL_STATE_CACHE_KEY = 'tt-global-state';
 export const GLOBAL_STATE_CACHE_USER_LIST_LIMIT = 500;
 export const GLOBAL_STATE_CACHE_CHAT_LIST_LIMIT = 200;
+export const GLOBAL_STATE_CACHE_ARCHIVED_CHAT_LIST_LIMIT = 10;
 export const GLOBAL_STATE_CACHE_CUSTOM_EMOJI_LIMIT = 150;
 
 export const MEDIA_CACHE_DISABLED = false;
@@ -47,8 +47,6 @@ export const MEDIA_CACHE_NAME = 'tt-media';
 export const MEDIA_CACHE_NAME_AVATARS = 'tt-media-avatars';
 export const MEDIA_PROGRESSIVE_CACHE_DISABLED = false;
 export const MEDIA_PROGRESSIVE_CACHE_NAME = 'tt-media-progressive';
-export const CUSTOM_EMOJI_PREVIEW_CACHE_DISABLED = false;
-export const CUSTOM_EMOJI_PREVIEW_CACHE_NAME = 'tt-custom-emoji-preview';
 export const MEDIA_CACHE_MAX_BYTES = 512 * 1024; // 512 KB
 export const CUSTOM_BG_CACHE_NAME = 'tt-custom-bg';
 export const LANG_CACHE_NAME = 'tt-lang-packs-v32';
@@ -327,7 +325,6 @@ export const MAX_UPLOAD_FILEPART_SIZE = 524288;
 // Group calls
 export const GROUP_CALL_VOLUME_MULTIPLIER = 100;
 export const GROUP_CALL_DEFAULT_VOLUME = 100 * GROUP_CALL_VOLUME_MULTIPLIER;
-export const GROUP_CALL_THUMB_VIDEO_DISABLED = true;
 
 export const DEFAULT_LIMITS: Record<ApiLimitType, readonly [number, number]> = {
   uploadMaxFileparts: [4000, 8000],

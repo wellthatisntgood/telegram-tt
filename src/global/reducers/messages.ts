@@ -1,6 +1,5 @@
 import type { ApiMessage, ApiSponsoredMessage, ApiThreadInfo } from '../../api/types';
 import type { FocusDirection, ThreadId } from '../../types';
-import type { MessageKey } from '../../util/messageKey';
 import type {
   GlobalState, MessageList, MessageListType, TabArgs, TabThread, Thread,
 } from '../types';
@@ -13,9 +12,9 @@ import { getCurrentTabId } from '../../util/establishMultitabRole';
 import {
   areSortedArraysEqual, excludeSortedArray, omit, pick, pickTruthy, unique,
 } from '../../util/iteratees';
+import { isLocalMessageId, type MessageKey } from '../../util/messageKey';
 import {
-  hasMessageTtl,
-  isLocalMessageId, mergeIdRanges, orderHistoryIds, orderPinnedIds,
+  hasMessageTtl, mergeIdRanges, orderHistoryIds, orderPinnedIds,
 } from '../helpers';
 import {
   selectChat,
@@ -267,11 +266,12 @@ export function deleteChatMessages<T extends GlobalState>(
     const message = byId[messageId];
     if (!message) return;
     const threadId = selectThreadIdFromMessage(global, message);
-    if (!threadId) return;
+    if (!threadId || threadId === MAIN_THREAD_ID) {
+      return;
+    }
     const threadMessages = updatedThreads.get(threadId) || [];
     threadMessages.push(messageId);
     updatedThreads.set(threadId, threadMessages);
-
     global = clearMessageTranslation(global, chatId, messageId);
   });
 
@@ -309,7 +309,14 @@ export function deleteChatMessages<T extends GlobalState>(
       if (!viewportIds) return;
 
       const newViewportIds = excludeSortedArray(viewportIds, messageIds);
-      global = replaceTabThreadParam(global, chatId, threadId, 'viewportIds', newViewportIds, tabId);
+      global = replaceTabThreadParam(
+        global,
+        chatId,
+        threadId,
+        'viewportIds',
+        newViewportIds.length === 0 ? undefined : newViewportIds,
+        tabId,
+      );
     });
 
     global = replaceThreadParam(global, chatId, threadId, 'listedIds', listedIds);

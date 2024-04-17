@@ -20,6 +20,7 @@ import {
   ARCHIVED_FOLDER_ID,
   CHAT_LIST_LOAD_SLICE,
   DEBUG,
+  GLOBAL_STATE_CACHE_ARCHIVED_CHAT_LIST_LIMIT,
   RE_TG_LINK,
   SAVED_FOLDER_ID,
   SERVICE_NOTIFICATIONS_USER_ID,
@@ -35,6 +36,7 @@ import { getCurrentTabId } from '../../../util/establishMultitabRole';
 import { getOrderedIds } from '../../../util/folderManager';
 import { buildCollectionByKey, omit, pick } from '../../../util/iteratees';
 import * as langProvider from '../../../util/langProvider';
+import { isLocalMessageId } from '../../../util/messageKey';
 import { debounce, pause, throttle } from '../../../util/schedulers';
 import { extractCurrentThemeParams } from '../../../util/themeStyle';
 import { callApi } from '../../../api/gramjs';
@@ -44,7 +46,6 @@ import {
   isChatBasicGroup,
   isChatChannel,
   isChatSuperGroup,
-  isLocalMessageId,
   isUserBot,
   toChannelId,
 } from '../../helpers';
@@ -210,7 +211,7 @@ addActionHandler('openChat', (global, actions, payload): ActionReturnType => {
 
   abortChatRequestsForCurrentChat(global, id, MAIN_THREAD_ID, tabId);
 
-  if (!id) {
+  if (!id || id === TMP_CHAT_ID) {
     return;
   }
 
@@ -506,7 +507,7 @@ addActionHandler('loadAllChats', async (global, actions, payload): Promise<void>
   let i = 0;
 
   const getOrderDate = (chat: ApiChat) => {
-    return selectChatLastMessage(global, chat.id)?.date || chat.creationDate;
+    return selectChatLastMessage(global, chat.id, listType === 'saved' ? 'saved' : 'all')?.date || chat.creationDate;
   };
 
   while (shouldReplace || !global.chats.isFullyLoaded[listType]) {
@@ -1262,20 +1263,12 @@ addActionHandler('openTelegramLink', (global, actions, payload): ActionReturnTyp
     tabId = getCurrentTabId(),
   } = payload;
 
-  if (isDeepLink(url)) {
-    const isProcessed = processDeepLink(url);
-    if (isProcessed || url.match(RE_TG_LINK)) {
-      return;
-    }
-  }
-
   const {
     openChatByPhoneNumber,
     openChatByInvite,
     openStickerSet,
     openChatWithDraft,
     joinVoiceChatByLink,
-    showNotification,
     focusMessage,
     openInvoice,
     processAttachBotParameters,
@@ -1285,6 +1278,13 @@ addActionHandler('openTelegramLink', (global, actions, payload): ActionReturnTyp
     processBoostParameters,
     checkGiftCode,
   } = actions;
+
+  if (isDeepLink(url)) {
+    const isProcessed = processDeepLink(url);
+    if (isProcessed || url.match(RE_TG_LINK)) {
+      return;
+    }
+  }
 
   const uri = new URL(url.toLowerCase().startsWith('http') ? url : `https://${url}`);
   if (TME_WEB_DOMAINS.has(uri.hostname) && uri.pathname === '/') {
@@ -1396,20 +1396,11 @@ addActionHandler('openTelegramLink', (global, actions, payload): ActionReturnTyp
       tabId,
     });
   } else if (part1 === 'c' && chatOrChannelPostId && messageId) {
-    const chatId = toChannelId(chatOrChannelPostId);
-    const chat = selectChat(global, chatId);
-    if (!chat) {
-      showNotification({ message: 'Chat does not exist', tabId });
-      return;
-    }
-
-    if (messageId) {
-      focusMessage({
-        chatId: chat.id,
-        messageId,
-        tabId,
-      });
-    }
+    focusMessage({
+      chatId: toChannelId(chatOrChannelPostId),
+      messageId,
+      tabId,
+    });
   } else if (part1.startsWith('$')) {
     openInvoice({
       slug: part1.substring(1),
@@ -2704,10 +2695,15 @@ async function loadChats(
       }
 
       const tabStates = Object.values(global.byTabId);
+      const topArchivedChats = getOrderedIds(ARCHIVED_FOLDER_ID)
+        ?.slice(0, GLOBAL_STATE_CACHE_ARCHIVED_CHAT_LIST_LIMIT)
+        .map((chatId) => selectChat(global, chatId))
+        .filter(Boolean);
       const visibleChats = tabStates.flatMap(({ id: tabId }) => {
         const currentChat = selectCurrentChat(global, tabId);
         return currentChat ? [currentChat] : [];
       });
+      const chatsToSave = visibleChats.concat(topArchivedChats || []);
 
       const visibleUsers = tabStates.flatMap(({ id: tabId }) => {
         return selectVisibleUsers(global, tabId) || [];
@@ -2719,7 +2715,7 @@ async function loadChats(
 
       global = replaceUsers(global, buildCollectionByKey(visibleUsers.concat(result.users), 'id'));
       global = replaceUserStatuses(global, result.userStatusesById);
-      global = replaceChats(global, buildCollectionByKey(visibleChats.concat(result.chats), 'id'));
+      global = replaceChats(global, buildCollectionByKey(chatsToSave.concat(result.chats), 'id'));
       global = replaceChatListIds(global, listType, chatIds);
     } else {
       // Archived and Saved

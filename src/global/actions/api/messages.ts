@@ -33,6 +33,7 @@ import {
   SUPPORTED_IMAGE_CONTENT_TYPES,
   SUPPORTED_VIDEO_CONTENT_TYPES,
 } from '../../../config';
+import { copyTextToClipboard } from '../../../util/clipboard';
 import { isDeepLink } from '../../../util/deepLinkParser';
 import { ensureProtocol } from '../../../util/ensureProtocol';
 import { getCurrentTabId } from '../../../util/establishMultitabRole';
@@ -45,7 +46,7 @@ import {
   unique,
 } from '../../../util/iteratees';
 import { translate } from '../../../util/langProvider';
-import { getMessageKey } from '../../../util/messageKey';
+import { getMessageKey, isLocalMessageId } from '../../../util/messageKey';
 import { debounce, onTickEnd, rafPromise } from '../../../util/schedulers';
 import { IS_IOS } from '../../../util/windowEnvironment';
 import { callApi, cancelApiProgress } from '../../../api/gramjs';
@@ -53,8 +54,8 @@ import {
   getIsSavedDialog,
   getUserFullName,
   isChatChannel,
+  isChatSuperGroup,
   isDeletedUser,
-  isLocalMessageId,
   isMessageLocal,
   isServiceNotificationMessage,
   isUserBot,
@@ -1899,6 +1900,49 @@ addActionHandler('loadOutboxReadDate', async (global, actions, payload): Promise
       setGlobal(global);
     }
   }
+});
+
+addActionHandler('copyMessageLink', async (global, actions, payload): Promise<void> => {
+  const {
+    chatId, messageId, shouldIncludeThread, shouldIncludeGrouped, tabId = getCurrentTabId(),
+  } = payload;
+  const chat = selectChat(global, chatId);
+  if (!chat) {
+    actions.showNotification({
+      message: translate('ErrorOccurred'),
+      tabId,
+    });
+    return;
+  }
+
+  if (!isChatChannel(chat) && !isChatSuperGroup(chat)) {
+    actions.showNotification({
+      message: translate('lng_filters_link_private_error'),
+      tabId,
+    });
+    return;
+  }
+
+  const link = await callApi('exportMessageLink', {
+    chat,
+    id: messageId,
+    shouldIncludeThread,
+    shouldIncludeGrouped,
+  });
+
+  if (!link) {
+    actions.showNotification({
+      message: translate('ErrorOccurred'),
+      tabId,
+    });
+    return;
+  }
+
+  copyTextToClipboard(link);
+  actions.showNotification({
+    message: translate('LinkCopied'),
+    tabId,
+  });
 });
 
 function countSortedIds(ids: number[], from: number, to: number) {
